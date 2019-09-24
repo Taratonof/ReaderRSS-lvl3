@@ -3,38 +3,10 @@ import validator from 'validator';
 import axios from 'axios';
 import WatchJS from 'melanke-watchjs';
 
-const render = (state) => {
-  const input = document.getElementById('formGroupExampleInput');
-  if (state.registrationProcess.valid) {
-    input.classList.remove('is-invalid');
-  } else {
-    input.classList.add('is-invalid');
-  }
-  const listChannel = document.querySelector('.list-group');
-  listChannel.innerHTML = '';
-  state.listChannelState.forEach((elem) => {
-    const listChannelElem = document.createElement('a');
-    listChannelElem.setAttribute('href', '#');
-    listChannelElem.setAttribute('url', elem.url);
-    listChannelElem.classList.add('list-group-item', 'list-group-item-action');
-    const div = document.createElement('div');
-    div.classList.add('d-flex', 'w-100', 'justify-content-between');
-    const h5 = document.createElement('h5');
-    h5.classList.add('mb-1');
-    h5.textContent = elem.title;
-    div.append(h5);
-    listChannelElem.append(div);
-    const p = document.createElement('p');
-    p.classList.add('mb-1');
-    p.textContent = elem.description;
-    listChannelElem.append(p);
-    listChannel.append(listChannelElem);
-  });
-};
-
 const app = () => {
   const state = {
     registrationProcess: {
+      flag: 0,
       valid: true,
     },
     listChannelState: [],
@@ -44,16 +16,58 @@ const app = () => {
       target: null,
     },
   };
+
+  const checkUrlList = (url, list) => {
+    let flag = false;
+    list.forEach((elem) => {
+      if (elem.url === url) {
+        flag = true;
+      }
+    });
+    return flag;
+  };
+
   const input = document.getElementById('formGroupExampleInput');
   input.addEventListener('keyup', () => {
-    if (validator.isURL(input.value)) {
+    if ((validator.isURL(input.value) && !checkUrlList(input.value, state.listChannelState)) || input.value === '') {
       state.registrationProcess.valid = true;
-      render(state);
+      state.registrationProcess.flag += 1;
     } else {
       state.registrationProcess.valid = false;
-      render(state);
+      state.registrationProcess.flag -= 1;
     }
   });
+
+  WatchJS.watch(state, 'registrationProcess', () => {
+    const inputtt = document.getElementById('formGroupExampleInput');
+    if (state.registrationProcess.valid) {
+      inputtt.classList.remove('is-invalid');
+    }
+    if (!state.registrationProcess.valid) {
+      inputtt.classList.add('is-invalid');
+    }
+    const listChannel = document.querySelector('.list-group');
+    listChannel.innerHTML = '';
+    state.listChannelState.forEach((elem) => {
+      const listChannelElem = document.createElement('a');
+      listChannelElem.setAttribute('href', '#');
+      listChannelElem.setAttribute('url', elem.url);
+      listChannelElem.classList.add('list-group-item', 'list-group-item-action');
+      const div = document.createElement('div');
+      div.classList.add('d-flex', 'w-100', 'justify-content-between');
+      const h5 = document.createElement('h5');
+      h5.classList.add('mb-1');
+      h5.textContent = elem.title;
+      div.append(h5);
+      listChannelElem.append(div);
+      const p = document.createElement('p');
+      p.classList.add('mb-1');
+      p.textContent = elem.description;
+      listChannelElem.append(p);
+      listChannel.append(listChannelElem);
+    });
+  });
+
 
   const listChannel = document.getElementById('ggg');
   WatchJS.watch(state, 'menu', () => {
@@ -71,8 +85,9 @@ const app = () => {
     const listNews = document.getElementById('listNews');
     listNews.innerHTML = '';
     state.itemChannel.forEach((elem) => {
-      const news = document.createElement('li');
+      const news = document.createElement('a');
       news.classList.add('list-group-item');
+      news.setAttribute('href', elem.querySelector('link').textContent);
       news.textContent = elem.querySelector('title').textContent;
       listNews.append(news);
     });
@@ -82,7 +97,7 @@ const app = () => {
     state.menu.click = true;
     const targetButtonChanel = e.target.closest('.list-group-item-action');
     state.menu.target = targetButtonChanel;
-    axios.get(targetButtonChanel.getAttribute('url'))
+    axios.get(`https://cors-anywhere.herokuapp.com/${targetButtonChanel.getAttribute('url')}`)
       .then((response) => {
         const parser = new DOMParser();
         const doc = parser.parseFromString(response.data, 'application/xml');
@@ -99,9 +114,16 @@ const app = () => {
         const doc = parser.parseFromString(response.data, 'application/xml');
         const title = doc.querySelector('title').textContent;
         const description = doc.querySelector('description').textContent;
-        const url = `https://cors-anywhere.herokuapp.com/${input.value}`;
-        state.listChannelState.push({ title, description, url });
-        render(state);
+        const url = input.value;
+        if (checkUrlList(url, state.listChannelState)) {
+          state.registrationProcess.valid = false;
+          state.registrationProcess.flag += 1;
+        } else {
+          state.listChannelState.push({ title, description, url });
+          input.value = '';
+          state.registrationProcess.valid = true;
+          state.registrationProcess.flag -= 1;
+        }
       });
   });
 };
