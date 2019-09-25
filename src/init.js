@@ -85,10 +85,29 @@ const app = () => {
     const listNews = document.getElementById('listNews');
     listNews.innerHTML = '';
     state.itemChannel.forEach((elem) => {
-      const news = document.createElement('a');
+      const news = document.createElement('li');
       news.classList.add('list-group-item');
-      news.setAttribute('href', elem.querySelector('link').textContent);
-      news.textContent = elem.querySelector('title').textContent;
+      const a = document.createElement('a');
+      a.setAttribute('href', elem.querySelector('link').textContent);
+      a.setAttribute('target', '_blank');
+      a.textContent = elem.querySelector('title').textContent;
+      news.append(a);
+      const buttonModal = document.createElement('button');
+      buttonModal.setAttribute('type', 'button');
+      buttonModal.classList.add('btn', 'btn-primary');
+      buttonModal.setAttribute('data-toggle', 'modal');
+      buttonModal.setAttribute('data-target', '#exampleModal');
+      buttonModal.setAttribute('style', 'float: right');
+      buttonModal.textContent = 'Подробнее';
+      buttonModal.addEventListener('click', () => {
+        const titleNews = elem.querySelector('title').textContent;
+        const descriptionNews = elem.querySelector('description').textContent;
+        const modalTitle = document.querySelector('.modal-title');
+        const modalBody = document.querySelector('.modal-body');
+        modalTitle.textContent = titleNews;
+        modalBody.textContent = descriptionNews;
+      });
+      news.append(buttonModal);
       listNews.append(news);
     });
   });
