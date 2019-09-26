@@ -17,6 +17,21 @@ const app = () => {
     },
   };
 
+  const checkNewNews = () => {
+    state.listChannelState.forEach((elem) => {
+      axios.get(`https://cors-anywhere.herokuapp.com/${elem.url}`)
+        .then((response) => {
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(response.data, 'application/xml');
+          const items = [...doc.querySelectorAll('item')];
+          // eslint-disable-next-line no-param-reassign
+          elem.items = items;
+        });
+    });
+  };
+
+  setInterval(checkNewNews, 5000);
+
   const checkUrlList = (url, list) => {
     let flag = false;
     list.forEach((elem) => {
@@ -116,13 +131,12 @@ const app = () => {
     state.menu.click = true;
     const targetButtonChanel = e.target.closest('.list-group-item-action');
     state.menu.target = targetButtonChanel;
-    axios.get(`https://cors-anywhere.herokuapp.com/${targetButtonChanel.getAttribute('url')}`)
-      .then((response) => {
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(response.data, 'application/xml');
-        const items = [...doc.querySelectorAll('item')];
-        state.itemChannel = items;
-      });
+    const url = targetButtonChanel.getAttribute('url');
+    state.listChannelState.forEach((elem) => {
+      if (elem.url === url) {
+        state.itemChannel = elem.items;
+      }
+    });
   });
 
   const button = document.querySelector('.btn-primary');
@@ -134,11 +148,14 @@ const app = () => {
         const title = doc.querySelector('title').textContent;
         const description = doc.querySelector('description').textContent;
         const url = input.value;
+        const items = [...doc.querySelectorAll('item')];
         if (checkUrlList(url, state.listChannelState)) {
           state.registrationProcess.valid = false;
           state.registrationProcess.flag += 1;
         } else {
-          state.listChannelState.push({ title, description, url });
+          state.listChannelState.push({
+            title, description, url, items,
+          });
           input.value = '';
           state.registrationProcess.valid = true;
           state.registrationProcess.flag -= 1;
