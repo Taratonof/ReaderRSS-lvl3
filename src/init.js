@@ -6,19 +6,17 @@ import WatchJS from 'melanke-watchjs';
 const app = () => {
   const state = {
     registrationProcess: {
-      flag: 0,
       valid: true,
     },
-    listChannelState: [],
+    listChannels: [],
     itemChannel: [],
     menu: {
-      click: false,
       target: null,
     },
   };
 
   const checkNewNews = () => {
-    state.listChannelState.forEach((elem) => {
+    state.listChannels.forEach((elem) => {
       axios.get(`https://cors-anywhere.herokuapp.com/${elem.url}`)
         .then((response) => {
           const parser = new DOMParser();
@@ -32,24 +30,19 @@ const app = () => {
 
   setInterval(checkNewNews, 5000);
 
-  const checkUrlList = (url, list) => {
-    let flag = false;
-    list.forEach((elem) => {
-      if (elem.url === url) {
-        flag = true;
-      }
-    });
-    return flag;
+  const validation = (url) => {
+    if ((validator.isURL(url) && state.listChannels.filter((elem) => elem.url === url).length === 0) || url === '') {
+      return true;
+    }
+    return false;
   };
 
   const input = document.getElementById('formGroupExampleInput');
-  input.addEventListener('keyup', () => {
-    if ((validator.isURL(input.value) && !checkUrlList(input.value, state.listChannelState)) || input.value === '') {
+  input.addEventListener('keyup', (e) => {
+    if (validation(e.currentTarget.value)) {
       state.registrationProcess.valid = true;
-      state.registrationProcess.flag += 1;
     } else {
       state.registrationProcess.valid = false;
-      state.registrationProcess.flag -= 1;
     }
   });
 
@@ -61,13 +54,21 @@ const app = () => {
     if (!state.registrationProcess.valid) {
       inputtt.classList.add('is-invalid');
     }
+  });
+
+  WatchJS.watch(state, 'listChannels', () => {
     const listChannel = document.querySelector('.list-group');
+    const beforeActiveChannel = listChannel.querySelector('.active');
+    const beforeActiveChannelUrl = (beforeActiveChannel === null) ? '' : beforeActiveChannel.getAttribute('url');
     listChannel.innerHTML = '';
-    state.listChannelState.forEach((elem) => {
+    state.listChannels.forEach((elem) => {
       const listChannelElem = document.createElement('a');
       listChannelElem.setAttribute('href', '#');
       listChannelElem.setAttribute('url', elem.url);
       listChannelElem.classList.add('list-group-item', 'list-group-item-action');
+      if (elem.url === beforeActiveChannelUrl) {
+        listChannelElem.classList.add('active');
+      }
       const div = document.createElement('div');
       div.classList.add('d-flex', 'w-100', 'justify-content-between');
       const h5 = document.createElement('h5');
@@ -86,16 +87,13 @@ const app = () => {
 
   const listChannel = document.getElementById('ggg');
   WatchJS.watch(state, 'menu', () => {
-    if (!state.menu) {
-      return;
-    }
     const beforeActiveButton = listChannel.querySelector('.active');
     if (beforeActiveButton !== null) {
       beforeActiveButton.classList.remove('active');
     }
     state.menu.target.classList.add('active');
-    state.menu.click = false;
   });
+
   WatchJS.watch(state, 'itemChannel', () => {
     const listNews = document.getElementById('listNews');
     listNews.innerHTML = '';
@@ -128,11 +126,10 @@ const app = () => {
   });
 
   listChannel.addEventListener('click', (e) => {
-    state.menu.click = true;
     const targetButtonChanel = e.target.closest('.list-group-item-action');
     state.menu.target = targetButtonChanel;
     const url = targetButtonChanel.getAttribute('url');
-    state.listChannelState.forEach((elem) => {
+    state.listChannels.forEach((elem) => {
       if (elem.url === url) {
         state.itemChannel = elem.items;
       }
@@ -149,16 +146,14 @@ const app = () => {
         const description = doc.querySelector('description').textContent;
         const url = input.value;
         const items = [...doc.querySelectorAll('item')];
-        if (checkUrlList(url, state.listChannelState)) {
+        if (state.listChannels.filter((elem) => elem.url === url).length > 0) {
           state.registrationProcess.valid = false;
-          state.registrationProcess.flag += 1;
         } else {
-          state.listChannelState.push({
+          state.listChannels.push({
             title, description, url, items,
           });
           input.value = '';
           state.registrationProcess.valid = true;
-          state.registrationProcess.flag -= 1;
         }
       });
   });

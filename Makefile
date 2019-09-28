@@ -5,7 +5,7 @@ unlink:
 develop:
 	npx webpack-dev-server
 start:
-	npx babel-node src/bin/gendiff.js
+	npm start
 publish:
 	npm publish --dry-run
 lint:
