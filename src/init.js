@@ -101,9 +101,9 @@ const app = () => {
       const news = document.createElement('li');
       news.classList.add('list-group-item');
       const a = document.createElement('a');
-      a.setAttribute('href', elem.querySelector('link').textContent);
+      a.setAttribute('href', elem.link);
       a.setAttribute('target', '_blank');
-      a.textContent = elem.querySelector('title').textContent;
+      a.textContent = elem.title;
       news.append(a);
       const buttonModal = document.createElement('button');
       buttonModal.setAttribute('type', 'button');
@@ -113,8 +113,8 @@ const app = () => {
       buttonModal.setAttribute('style', 'float: right');
       buttonModal.textContent = 'Подробнее';
       buttonModal.addEventListener('click', () => {
-        const titleNews = elem.querySelector('title').textContent;
-        const descriptionNews = elem.querySelector('description').textContent;
+        const titleNews = elem.title;
+        const descriptionNews = elem.description;
         const modalTitle = document.querySelector('.modal-title');
         const modalBody = document.querySelector('.modal-body');
         modalTitle.textContent = titleNews;
@@ -131,14 +131,24 @@ const app = () => {
     const url = targetButtonChanel.getAttribute('url');
     state.listChannels.forEach((elem) => {
       if (elem.url === url) {
-        state.itemChannel = elem.items;
+        const listItems = elem.items.reduce((acc, item) => {
+          const obj = {
+            title: item.querySelector('title').textContent,
+            description: item.querySelector('description').textContent,
+            link: item.querySelector('link').textContent,
+          };
+          acc.push(obj);
+          return acc;
+        }, []);
+        state.itemChannel = listItems;
       }
     });
   });
 
-  const button = document.querySelector('.btn-primary');
-  button.addEventListener('click', () => {
-    axios.get(`https://cors-anywhere.herokuapp.com/${input.value}`)
+  const button = document.querySelector('.jumbotron');
+  button.addEventListener('submit', (e) => {
+    const inputForm = e.currentTarget.querySelector('input');
+    axios.get(`https://cors-anywhere.herokuapp.com/${inputForm.value}`)
       .then((response) => {
         const parser = new DOMParser();
         const doc = parser.parseFromString(response.data, 'application/xml');
@@ -152,7 +162,7 @@ const app = () => {
           state.listChannels.push({
             title, description, url, items,
           });
-          input.value = '';
+          inputForm.value = '';
           state.registrationProcess.valid = true;
         }
       });
