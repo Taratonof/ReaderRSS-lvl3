@@ -15,15 +15,29 @@ const app = () => {
     },
   };
 
+  const domParseFromString = (data, format) => {
+    const parser = new DOMParser();
+    const document = parser.parseFromString(data, format);
+    return document;
+  };
+
   const checkNewNews = () => {
     state.listChannels.forEach((elem) => {
       axios.get(`https://cors-anywhere.herokuapp.com/${elem.url}`)
         .then((response) => {
-          const parser = new DOMParser();
-          const doc = parser.parseFromString(response.data, 'application/xml');
+          const doc = domParseFromString(response.data, 'application/xml');
           const items = [...doc.querySelectorAll('item')];
+          const listItems = items.reduce((acc, item) => {
+            const obj = {
+              title: item.querySelector('title').textContent,
+              description: item.querySelector('description').textContent,
+              link: item.querySelector('link').textContent,
+            };
+            acc.push(obj);
+            return acc;
+          }, []);
           // eslint-disable-next-line no-param-reassign
-          elem.items = items;
+          elem.listItems = listItems;
         });
     });
   };
@@ -131,7 +145,24 @@ const app = () => {
     const url = targetButtonChanel.getAttribute('url');
     state.listChannels.forEach((elem) => {
       if (elem.url === url) {
-        const listItems = elem.items.reduce((acc, item) => {
+        state.itemChannel = elem.listItems;
+      }
+    });
+  });
+
+  const button = document.querySelector('.jumbotron');
+  button.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const inputForm = e.currentTarget.querySelector('input');
+    axios.get(`https://cors-anywhere.herokuapp.com/${inputForm.value}`)
+      .then((response) => {
+        const doc = domParseFromString(response.data, 'application/xml');
+        const title = doc.querySelector('title').textContent;
+        const description = doc.querySelector('description').textContent;
+        const url = input.value;
+        const items = [...doc.querySelectorAll('item')];
+        //
+        const listItems = items.reduce((acc, item) => {
           const obj = {
             title: item.querySelector('title').textContent,
             description: item.querySelector('description').textContent,
@@ -140,27 +171,12 @@ const app = () => {
           acc.push(obj);
           return acc;
         }, []);
-        state.itemChannel = listItems;
-      }
-    });
-  });
-
-  const button = document.querySelector('.jumbotron');
-  button.addEventListener('submit', (e) => {
-    const inputForm = e.currentTarget.querySelector('input');
-    axios.get(`https://cors-anywhere.herokuapp.com/${inputForm.value}`)
-      .then((response) => {
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(response.data, 'application/xml');
-        const title = doc.querySelector('title').textContent;
-        const description = doc.querySelector('description').textContent;
-        const url = input.value;
-        const items = [...doc.querySelectorAll('item')];
+        //
         if (state.listChannels.filter((elem) => elem.url === url).length > 0) {
           state.registrationProcess.valid = false;
         } else {
           state.listChannels.push({
-            title, description, url, items,
+            title, description, url, listItems,
           });
           inputForm.value = '';
           state.registrationProcess.valid = true;
