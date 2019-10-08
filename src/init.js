@@ -5,97 +5,59 @@ import WatchJS from 'melanke-watchjs';
 
 export default () => {
   const state = {
-    addingChannel: '',
-    registrationProcess: {
-      valid: true,
-    },
+    registrationProcess: 'valid',
     listChannels: [],
     innerHtmlChannel: [],
   };
 
-  const domParseFromString = (data, format) => {
+  const parseRss = (rss) => {
     const parser = new DOMParser();
-    const document = parser.parseFromString(data, format);
-    return document;
+    const doc = parser.parseFromString(rss, 'application/xml');
+    const title = doc.querySelector('title').textContent;
+    const description = doc.querySelector('description').textContent;
+    const items = [...doc.querySelectorAll('item')];
+    const listItems = items.reduce((acc, item) => {
+      const obj = {
+        title: item.querySelector('title').textContent,
+        description: item.querySelector('description').textContent,
+        link: item.querySelector('link').textContent,
+      };
+      const newAcc = acc.concat(obj);
+      return newAcc;
+    }, []);
+    return { title, description, listItems };
   };
 
   const checkNewNews = () => {
     state.listChannels.forEach((elem) => {
       axios.get(`https://cors-anywhere.herokuapp.com/${elem.url}`)
         .then((response) => {
-          const doc = domParseFromString(response.data, 'application/xml');
-          const items = [...doc.querySelectorAll('item')];
-          const listItems = items.reduce((acc, item) => {
-            const obj = {
-              title: item.querySelector('title').textContent,
-              description: item.querySelector('description').textContent,
-              link: item.querySelector('link').textContent,
-            };
-            const newAcc = acc.concat(obj);
-            return newAcc;
-          }, []);
+          const channel = parseRss(response.data);
           // eslint-disable-next-line no-param-reassign
-          elem.listItems = listItems;
+          elem.channel.listItems = channel.listItems;
         });
     });
   };
 
   setInterval(checkNewNews, 5000);
 
-  const isValidUrl = (url) => {
-    if ((validator.isURL(url) && state.listChannels.filter((elem) => elem.url === url).length === 0) || url === '') {
-      return true;
-    }
-    return false;
-  };
+  const isValidUrl = (url) => (validator.isURL(url) && state.listChannels.filter((elem) => elem.url === url).length === 0) || url === '';
 
   const input = document.getElementById('formGroupExampleInput');
   input.addEventListener('keyup', (e) => {
     if (isValidUrl(e.currentTarget.value)) {
-      state.registrationProcess.valid = true;
+      state.registrationProcess = 'valid';
     } else {
-      state.registrationProcess.valid = false;
+      state.registrationProcess = 'invalid';
     }
-  });
-
-  WatchJS.watch(state, 'addingChannel', () => {
-    axios.get(`https://cors-anywhere.herokuapp.com/${state.addingChannel}`)
-      .then((response) => {
-        const doc = domParseFromString(response.data, 'application/xml');
-        const title = doc.querySelector('title').textContent;
-        const description = doc.querySelector('description').textContent;
-        const url = input.value;
-        const targetStatus = false;
-        const items = [...doc.querySelectorAll('item')];
-        const listItems = items.reduce((acc, item) => {
-          const obj = {
-            title: item.querySelector('title').textContent,
-            description: item.querySelector('description').textContent,
-            link: item.querySelector('link').textContent,
-          };
-          acc.push(obj);
-          return acc;
-        }, []);
-
-        if (state.listChannels.filter((elem) => elem.url === url).length > 0) {
-          state.registrationProcess.valid = false;
-        } else {
-          state.listChannels.push({
-            title, description, url, listItems, targetStatus,
-          });
-          const inputForm = document.querySelector('input');
-          inputForm.value = '';
-          state.registrationProcess.valid = true;
-        }
-      });
   });
 
   WatchJS.watch(state, 'registrationProcess', () => {
     const inputtt = document.getElementById('formGroupExampleInput');
-    if (state.registrationProcess.valid) {
+    if (state.registrationProcess === 'valid') {
       inputtt.classList.remove('is-invalid');
     }
-    if (!state.registrationProcess.valid) {
+    if (state.registrationProcess === 'invalid') {
       inputtt.classList.add('is-invalid');
     }
   });
@@ -119,19 +81,16 @@ export default () => {
       div.classList.add('d-flex', 'w-100', 'justify-content-between');
       const h5 = document.createElement('h5');
       h5.classList.add('mb-1');
-      h5.textContent = elem.title;
+      h5.textContent = elem.channel.title;
       div.append(h5);
       listChannelElem.append(div);
       const p = document.createElement('p');
       p.classList.add('mb-1');
-      p.textContent = elem.description;
+      p.textContent = elem.channel.description;
       listChannelElem.append(p);
       listChannel.append(listChannelElem);
     });
   });
-
-
-  const listChannel = document.getElementById('ggg');
 
   WatchJS.watch(state, 'innerHtmlChannel', () => {
     const listNews = document.getElementById('listNews');
@@ -164,16 +123,18 @@ export default () => {
     });
   });
 
+  const listChannel = document.getElementById('listChannel');
+
   listChannel.addEventListener('click', (e) => {
-    const targetButtonChanel = e.target.closest('.list-group-item-action');
-    const url = targetButtonChanel.getAttribute('url');
+    const targetButtonChannel = e.target.closest('.list-group-item-action');
+    const url = targetButtonChannel.getAttribute('url');
     state.listChannels.forEach((elem) => {
       // eslint-disable-next-line no-param-reassign
       elem.targetStatus = false;
       if (elem.url === url) {
         // eslint-disable-next-line no-param-reassign
         elem.targetStatus = true;
-        state.innerHtmlChannel = elem.listItems;
+        state.innerHtmlChannel = elem.channel.listItems;
       }
     });
   });
@@ -181,7 +142,25 @@ export default () => {
   const button = document.querySelector('.jumbotron');
   button.addEventListener('submit', (e) => {
     e.preventDefault();
-    const inputFormValue = e.currentTarget.querySelector('input').value;
+    const target = e.currentTarget;
+    const inputForm = target.querySelector('input');
+    const inputFormValue = inputForm.value;
     state.addingChannel = inputFormValue;
+
+    axios.get(`https://cors-anywhere.herokuapp.com/${inputFormValue}`)
+      .then((response) => {
+        const channel = parseRss(response.data);
+        const targetStatus = false;
+        const url = inputFormValue;
+
+        if (state.listChannels.filter((elem) => elem.url === url).length > 0) {
+          state.registrationProcess = 'invalid';
+        } else {
+          state.listChannels.push({ channel, targetStatus, url });
+          const form = button.querySelector('form');
+          form.reset();
+          state.registrationProcess = 'valid';
+        }
+      });
   });
 };
