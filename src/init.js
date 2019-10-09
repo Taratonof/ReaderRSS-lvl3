@@ -41,24 +41,20 @@ export default () => {
 
   setInterval(checkNewNews, 5000);
 
-  const isValidUrl = (url) => (validator.isURL(url) && state.listChannels.filter((elem) => elem.url === url).length === 0) || url === '';
-
-  const input = document.getElementById('formGroupExampleInput');
-  input.addEventListener('keyup', (e) => {
-    if (isValidUrl(e.currentTarget.value)) {
-      state.registrationProcess = 'valid';
-    } else {
-      state.registrationProcess = 'invalid';
-    }
-  });
+  // eslint-disable-next-line max-len
+  const isValidUrl = (url) => validator.isURL(url) && state.listChannels.filter((elem) => elem.url === url).length === 0;
 
   WatchJS.watch(state, 'registrationProcess', () => {
-    const inputtt = document.getElementById('formGroupExampleInput');
+    const input = document.getElementById('formGroupExampleInput');
+    if (state.registrationProcess === 'added') {
+      const form = input.closest('form');
+      form.reset();
+    }
     if (state.registrationProcess === 'valid') {
-      inputtt.classList.remove('is-invalid');
+      input.classList.remove('is-invalid');
     }
     if (state.registrationProcess === 'invalid') {
-      inputtt.classList.add('is-invalid');
+      input.classList.add('is-invalid');
     }
   });
 
@@ -123,6 +119,15 @@ export default () => {
     });
   });
 
+  const input = document.getElementById('formGroupExampleInput');
+  input.addEventListener('keyup', (e) => {
+    if (isValidUrl(e.currentTarget.value) || e.currentTarget.value === '') {
+      state.registrationProcess = 'valid';
+    } else {
+      state.registrationProcess = 'invalid';
+    }
+  });
+
   const listChannel = document.getElementById('listChannel');
 
   listChannel.addEventListener('click', (e) => {
@@ -157,9 +162,7 @@ export default () => {
           state.registrationProcess = 'invalid';
         } else {
           state.listChannels.push({ channel, targetStatus, url });
-          const form = button.querySelector('form');
-          form.reset();
-          state.registrationProcess = 'valid';
+          state.registrationProcess = 'added';
         }
       });
   });
