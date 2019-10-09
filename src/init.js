@@ -150,7 +150,6 @@ export default () => {
     const target = e.currentTarget;
     const inputForm = target.querySelector('input');
     const inputFormValue = inputForm.value;
-    state.addingChannel = inputFormValue;
 
     axios.get(`https://cors-anywhere.herokuapp.com/${inputFormValue}`)
       .then((response) => {
