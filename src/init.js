@@ -3,46 +3,57 @@ import validator from 'validator';
 import axios from 'axios';
 import WatchJS from 'melanke-watchjs';
 
+const parseRss = (rss) => {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(rss, 'application/xml');
+  const title = doc.querySelector('title').textContent;
+  const description = doc.querySelector('description').textContent;
+  const items = [...doc.querySelectorAll('item')];
+  const listItems = items.map((item) => {
+    const obj = {
+      title: item.querySelector('title').textContent,
+      description: item.querySelector('description').textContent,
+      link: item.querySelector('link').textContent,
+    };
+    return obj;
+  });
+  return { title, description, listItems };
+};
+
 export default () => {
   const state = {
     registrationProcess: 'valid',
     listChannels: [],
-    innerHtmlChannel: [],
-  };
-
-  const parseRss = (rss) => {
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(rss, 'application/xml');
-    const title = doc.querySelector('title').textContent;
-    const description = doc.querySelector('description').textContent;
-    const items = [...doc.querySelectorAll('item')];
-    const listItems = items.reduce((acc, item) => {
-      const obj = {
-        title: item.querySelector('title').textContent,
-        description: item.querySelector('description').textContent,
-        link: item.querySelector('link').textContent,
-      };
-      const newAcc = acc.concat(obj);
-      return newAcc;
-    }, []);
-    return { title, description, listItems };
+    listChannelNews: [],
   };
 
   const checkNewNews = () => {
     state.listChannels.forEach((elem) => {
+      const oldChannel = elem.channel;
+      const oldChannelItems = oldChannel.listItems.concat();
+      const oldChannelLinks = new Set(oldChannelItems.map((item) => item.link));
       axios.get(`https://cors-anywhere.herokuapp.com/${elem.url}`)
         .then((response) => {
-          const channel = parseRss(response.data);
-          // eslint-disable-next-line no-param-reassign
-          elem.channel.listItems = channel.listItems;
+          const newChannel = parseRss(response.data);
+          const newChannelItems = newChannel.listItems;
+          newChannelItems.map((item) => {
+            if (!oldChannelLinks.has(item.link)) {
+              const updatedItemsChannel = oldChannelItems.concat();
+              updatedItemsChannel.unshift(item);
+              oldChannel.listItems = updatedItemsChannel;
+            }
+            return null;
+          });
+        }).catch(() => {
+          oldChannel.listItems = oldChannelItems;
         });
     });
   };
 
   setInterval(checkNewNews, 5000);
 
-  // eslint-disable-next-line max-len
-  const isValidUrl = (url) => validator.isURL(url) && state.listChannels.filter((elem) => elem.url === url).length === 0;
+  const isValidUrl = (url) => validator.isURL(url)
+   && state.listChannels.filter((elem) => elem.url === url).length === 0;
 
   WatchJS.watch(state, 'registrationProcess', () => {
     const input = document.getElementById('formGroupExampleInput');
@@ -88,10 +99,10 @@ export default () => {
     });
   });
 
-  WatchJS.watch(state, 'innerHtmlChannel', () => {
+  WatchJS.watch(state, 'ListChannelNews', () => {
     const listNews = document.getElementById('listNews');
     listNews.innerHTML = '';
-    state.innerHtmlChannel.forEach((elem) => {
+    state.ListChannelNews.forEach((elem) => {
       const news = document.createElement('li');
       news.classList.add('list-group-item');
       const a = document.createElement('a');
@@ -134,12 +145,11 @@ export default () => {
     const targetButtonChannel = e.target.closest('.list-group-item-action');
     const url = targetButtonChannel.getAttribute('url');
     state.listChannels.forEach((elem) => {
-      // eslint-disable-next-line no-param-reassign
-      elem.targetStatus = false;
-      if (elem.url === url) {
-        // eslint-disable-next-line no-param-reassign
-        elem.targetStatus = true;
-        state.innerHtmlChannel = elem.channel.listItems;
+      const element = elem;
+      element.targetStatus = false;
+      if (element.url === url) {
+        element.targetStatus = true;
+        state.ListChannelNews = element.channel.listItems;
       }
     });
   });
