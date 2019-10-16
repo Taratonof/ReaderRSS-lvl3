@@ -2,6 +2,7 @@ import '@babel/polyfill';
 import validator from 'validator';
 import axios from 'axios';
 import WatchJS from 'melanke-watchjs';
+import _ from 'lodash';
 
 const parseRss = (rss) => {
   const parser = new DOMParser();
@@ -27,45 +28,52 @@ export default () => {
     listChannelNews: [],
   };
 
-  const checkNewNews = () => {
+  const checkNewNews = (url) => {
     state.listChannels.forEach((elem) => {
-      const oldChannel = elem.channel;
-      const oldChannelItems = oldChannel.listItems.concat();
-      const oldChannelLinks = new Set(oldChannelItems.map((item) => item.link));
-      axios.get(`https://cors-anywhere.herokuapp.com/${elem.url}`)
-        .then((response) => {
-          const newChannel = parseRss(response.data);
-          const newChannelItems = newChannel.listItems;
-          newChannelItems.map((item) => {
-            if (!oldChannelLinks.has(item.link)) {
-              const updatedItemsChannel = oldChannelItems.concat();
-              updatedItemsChannel.unshift(item);
-              oldChannel.listItems = updatedItemsChannel;
-            }
-            return null;
+      if (elem.url === url) {
+        const oldChannel = elem.channel;
+        const oldChannelItems = oldChannel.listItems;
+        axios.get(`https://cors-anywhere.herokuapp.com/${elem.url}`)
+          .then((response) => {
+            const newChannel = parseRss(response.data);
+            const newChannelItems = newChannel.listItems;
+            const unionChannelItems = _.unionBy(newChannelItems, oldChannelItems, 'link');
+            oldChannel.listItems = unionChannelItems;
+          }).then(() => {
+            setTimeout(() => checkNewNews(url), 5000);
+          })
+          .catch((e) => {
+            console.log(e);
+            // eslint-disable-next-line no-alert
+            alert(`Возникла ошибка при запросе данных: "${e}"`);
+            setTimeout(() => checkNewNews(url), 5000);
           });
-        }).catch(() => {
-          oldChannel.listItems = oldChannelItems;
-        });
+      }
     });
   };
 
-  setInterval(checkNewNews, 5000);
 
   const isValidUrl = (url) => validator.isURL(url)
    && state.listChannels.filter((elem) => elem.url === url).length === 0;
 
   WatchJS.watch(state, 'registrationProcess', () => {
     const input = document.getElementById('formGroupExampleInput');
-    if (state.registrationProcess === 'added') {
-      const form = input.closest('form');
-      form.reset();
-    }
-    if (state.registrationProcess === 'valid') {
-      input.classList.remove('is-invalid');
-    }
-    if (state.registrationProcess === 'invalid') {
-      input.classList.add('is-invalid');
+    const form = input.closest('form');
+    switch (state.registrationProcess) {
+      case 'added':
+        form.reset();
+        break;
+
+      case 'valid':
+        input.classList.remove('is-invalid');
+        break;
+
+      case 'invalid':
+        input.classList.add('is-invalid');
+        break;
+
+      default:
+        break;
     }
   });
 
@@ -173,6 +181,6 @@ export default () => {
           state.listChannels.push({ channel, targetStatus, url });
           state.registrationProcess = 'added';
         }
-      });
+      }).then(() => checkNewNews(inputFormValue));
   });
 };
