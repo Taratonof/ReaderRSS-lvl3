@@ -26,6 +26,7 @@ export default () => {
     registrationProcess: 'valid',
     listChannels: [],
     listChannelNews: [],
+    alert: 'notShow',
   };
 
   const checkNewNews = (url) => {
@@ -40,12 +41,12 @@ export default () => {
             const unionChannelItems = _.unionBy(newChannelItems, oldChannelItems, 'link');
             oldChannel.listItems = unionChannelItems;
           }).then(() => {
+            state.alert = 'notShow';
             setTimeout(() => checkNewNews(url), 5000);
           })
           .catch((e) => {
             console.log(e);
-            // eslint-disable-next-line no-alert
-            alert(`Возникла ошибка при запросе данных: "${e}"`);
+            state.alert = 'show';
             setTimeout(() => checkNewNews(url), 5000);
           });
       }
@@ -73,7 +74,7 @@ export default () => {
         break;
 
       default:
-        break;
+        throw new Error(`No suitable type: ${state.registrationProcess}`);
     }
   });
 
@@ -138,6 +139,24 @@ export default () => {
     });
   });
 
+  WatchJS.watch(state, 'alert', () => {
+    const alert = document.getElementById('alert');
+    switch (state.alert) {
+      case 'show':
+        alert.innerHTML = `<div class="alert alert-danger" role="alert">
+        <strong>Внимание!</strong> Возникла ошибка при запросе данных - проверьте соединение с интернетом.
+      </div>`;
+        break;
+
+      case 'notShow':
+        alert.innerHTML = '';
+        break;
+
+      default:
+        throw new Error(`No suitable type: ${state.alert}`);
+    }
+  });
+
   const input = document.getElementById('formGroupExampleInput');
   input.addEventListener('keyup', (e) => {
     if (isValidUrl(e.currentTarget.value) || e.currentTarget.value === '') {
@@ -147,9 +166,9 @@ export default () => {
     }
   });
 
-  const listChannel = document.getElementById('listChannel');
+  const listChannels = document.getElementById('listChannels');
 
-  listChannel.addEventListener('click', (e) => {
+  listChannels.addEventListener('click', (e) => {
     const targetButtonChannel = e.target.closest('.list-group-item-action');
     const url = targetButtonChannel.getAttribute('url');
     state.listChannels.forEach((elem) => {
@@ -181,6 +200,11 @@ export default () => {
           state.listChannels.push({ channel, targetStatus, url });
           state.registrationProcess = 'added';
         }
-      }).then(() => checkNewNews(inputFormValue));
+      }).finally(() => {
+        const listUrlChannels = new Set(state.listChannels.map((elem) => elem.url));
+        if (listUrlChannels.has(inputFormValue)) {
+          checkNewNews(inputFormValue);
+        }
+      });
   });
 };
