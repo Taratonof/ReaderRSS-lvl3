@@ -26,30 +26,31 @@ export default () => {
     registrationProcess: 'valid',
     listChannels: [],
     listChannelNews: [],
-    alert: 'notShow',
+    networkStatus: 'networkStable',
   };
 
-  const checkNewNews = (url) => {
+  const addNewItemsChannel = (url) => {
     state.listChannels.forEach((elem) => {
-      if (elem.url === url) {
-        const oldChannel = elem.channel;
-        const oldChannelItems = oldChannel.listItems;
-        axios.get(`https://cors-anywhere.herokuapp.com/${elem.url}`)
-          .then((response) => {
-            const newChannel = parseRss(response.data);
-            const newChannelItems = newChannel.listItems;
-            const unionChannelItems = _.unionBy(newChannelItems, oldChannelItems, 'link');
-            oldChannel.listItems = unionChannelItems;
-          }).then(() => {
-            state.alert = 'notShow';
-            setTimeout(() => checkNewNews(url), 5000);
-          })
-          .catch((e) => {
-            console.log(e);
-            state.alert = 'show';
-            setTimeout(() => checkNewNews(url), 5000);
-          });
+      if (elem.url !== url) {
+        return;
       }
+      const oldChannel = elem.channel;
+      const oldChannelItems = oldChannel.listItems;
+      axios.get(`https://cors-anywhere.herokuapp.com/${elem.url}`)
+        .then((response) => {
+          state.networkStatus = 'networkStable';
+          const newChannel = parseRss(response.data);
+          const newChannelItems = newChannel.listItems;
+          const unionChannelItems = _.unionBy(newChannelItems, oldChannelItems, 'link');
+          oldChannel.listItems = unionChannelItems;
+        })
+        .catch((e) => {
+          console.log(e);
+          state.networkStatus = 'Error';
+        })
+        .finally(() => {
+          setTimeout(() => addNewItemsChannel(url), 5000);
+        });
     });
   };
 
@@ -60,9 +61,34 @@ export default () => {
   WatchJS.watch(state, 'registrationProcess', () => {
     const input = document.getElementById('formGroupExampleInput');
     const form = input.closest('form');
+    const button = document.querySelector('[data-toggle="submitJumbotron"]');
+    const alert = document.getElementById('alertUpload');
     switch (state.registrationProcess) {
+      case 'upload':
+        button.setAttribute('disabled', '');
+        input.setAttribute('disabled', '');
+        button.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>Loading...';
+        break;
+
+      case 'notLoaded':
+        button.removeAttribute('disabled');
+        input.removeAttribute('disabled');
+        form.reset();
+        button.innerHTML = 'Добавить канал';
+        alert.innerHTML = `
+          <div class="alert alert-warning alert-danger fade show" role="alert">
+            <strong>Ошибка!</strong> Не получилось загрузить данные.
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+              <span aria-hidden="true">&times;</span>
+            </button>
+          </div>`;
+        break;
+
       case 'added':
         form.reset();
+        button.removeAttribute('disabled');
+        input.removeAttribute('disabled');
+        button.innerHTML = 'Добавить канал';
         break;
 
       case 'valid':
@@ -93,17 +119,14 @@ export default () => {
         }
         listChannelElem.classList.add('active');
       }
-      const div = document.createElement('div');
-      div.classList.add('d-flex', 'w-100', 'justify-content-between');
-      const h5 = document.createElement('h5');
-      h5.classList.add('mb-1');
-      h5.textContent = elem.channel.title;
-      div.append(h5);
-      listChannelElem.append(div);
-      const p = document.createElement('p');
-      p.classList.add('mb-1');
-      p.textContent = elem.channel.description;
-      listChannelElem.append(p);
+
+      listChannelElem.innerHTML = `
+        <div class="d-flex w-100 justify-content-between">
+          <h5 class="mb-1">${elem.channel.title}</h5>
+        </div>
+        <p class="mb-1">${elem.channel.description}</p>
+      `;
+
       listChannel.append(listChannelElem);
     });
   });
@@ -120,8 +143,8 @@ export default () => {
       a.textContent = elem.title;
       news.append(a);
       const buttonModal = document.createElement('button');
-      buttonModal.setAttribute('type', 'button');
       buttonModal.classList.add('btn', 'btn-primary');
+      buttonModal.setAttribute('type', 'button');
       buttonModal.setAttribute('data-toggle', 'modal');
       buttonModal.setAttribute('data-target', '#exampleModal');
       buttonModal.setAttribute('style', 'float: right');
@@ -139,21 +162,21 @@ export default () => {
     });
   });
 
-  WatchJS.watch(state, 'alert', () => {
+  WatchJS.watch(state, 'networkStatus', () => {
     const alert = document.getElementById('alert');
-    switch (state.alert) {
-      case 'show':
+    switch (state.networkStatus) {
+      case 'Error':
         alert.innerHTML = `<div class="alert alert-danger" role="alert">
         <strong>Внимание!</strong> Возникла ошибка при запросе данных - проверьте соединение с интернетом.
       </div>`;
         break;
 
-      case 'notShow':
+      case 'networkStable':
         alert.innerHTML = '';
         break;
 
       default:
-        throw new Error(`No suitable type: ${state.alert}`);
+        throw new Error(`No suitable type: ${state.networkStatus}`);
     }
   });
 
@@ -185,25 +208,32 @@ export default () => {
   button.addEventListener('submit', (e) => {
     e.preventDefault();
     const target = e.currentTarget;
-    const inputForm = target.querySelector('input');
+    const inputForm = target.querySelector('[data-toggle="inputJumbotron"]');
     const inputFormValue = inputForm.value;
-
+    state.registrationProcess = 'upload';
     axios.get(`https://cors-anywhere.herokuapp.com/${inputFormValue}`)
       .then((response) => {
         const channel = parseRss(response.data);
         const targetStatus = false;
         const url = inputFormValue;
 
-        if (state.listChannels.filter((elem) => elem.url === url).length > 0) {
+        if (!isValidUrl(url)) {
           state.registrationProcess = 'invalid';
         } else {
           state.listChannels.push({ channel, targetStatus, url });
           state.registrationProcess = 'added';
         }
-      }).finally(() => {
-        const listUrlChannels = new Set(state.listChannels.map((elem) => elem.url));
-        if (listUrlChannels.has(inputFormValue)) {
-          checkNewNews(inputFormValue);
+      })
+      .catch((error) => {
+        console.log(error);
+        state.registrationProcess = 'notLoaded';
+      })
+      .finally(() => {
+        const isAddedChannelFlag = state.listChannels
+          .find((elem) => elem.url === inputFormValue) !== undefined;
+
+        if (isAddedChannelFlag) {
+          addNewItemsChannel(inputFormValue);
         }
       });
   });

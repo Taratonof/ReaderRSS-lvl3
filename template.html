@@ -6,14 +6,15 @@
   </head>
   <body>
     <div id="alert"></div>
+    <div id="alertUpload"></div>
     <div class="jumbotron">
       <form>
-        <input type="text" class="form-control" id="formGroupExampleInput" placeholder="Введите адрес RSS-канала">
+        <input type="text" class="form-control" id="formGroupExampleInput" data-toggle="inputJumbotron" placeholder="Введите адрес RSS-канала">
         <div class="invalid-feedback">
           Please enter a valid URL.
         </div>
         <hr class="my-4">
-        <button type="submit" class="btn btn-primary">Добавить канал</button>
+        <button type="submit" class="btn btn-primary" style="width:10%" data-toggle="submitJumbotron">Добавить канал</button>
       </form>
     </div>
     <div class="container-fluid">
