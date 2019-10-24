@@ -67,14 +67,14 @@ export default () => {
       case 'upload':
         button.setAttribute('disabled', '');
         input.setAttribute('disabled', '');
-        button.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>Loading...';
+        button.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>Загрузка...';
         break;
 
       case 'notLoaded':
         button.removeAttribute('disabled');
         input.removeAttribute('disabled');
         form.reset();
-        button.innerHTML = 'Добавить канал';
+        button.innerHTML = 'Добавить';
         alert.innerHTML = `
           <div class="alert alert-warning alert-danger fade show" role="alert">
             <strong>Ошибка!</strong> Не получилось загрузить данные.
