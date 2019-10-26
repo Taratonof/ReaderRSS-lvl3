@@ -3,31 +3,24 @@ import validator from 'validator';
 import axios from 'axios';
 import WatchJS from 'melanke-watchjs';
 import _ from 'lodash';
-
-const parseRss = (rss) => {
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(rss, 'application/xml');
-  const title = doc.querySelector('title').textContent;
-  const description = doc.querySelector('description').textContent;
-  const items = [...doc.querySelectorAll('item')];
-  const listItems = items.map((item) => {
-    const obj = {
-      title: item.querySelector('title').textContent,
-      description: item.querySelector('description').textContent,
-      link: item.querySelector('link').textContent,
-    };
-    return obj;
-  });
-  return { title, description, listItems };
-};
+import parseRss from './parsers/parseRss';
+import * as views from './watchers/views';
 
 export default () => {
   const state = {
-    registrationProcess: 'valid',
+    processUploadingRss: 'valid',
+    processUploadingFid: 'uploadingFid',
     listChannels: [],
     listChannelNews: [],
-    networkStatus: 'networkStable',
   };
+
+  WatchJS.watch(state, 'processUploadingFid', views.viewUploadingFid(state));
+
+  WatchJS.watch(state, 'processUploadingRss', views.viewUploadingRss(state));
+
+  WatchJS.watch(state, 'listChannels', views.viewListChannels(state));
+
+  WatchJS.watch(state, 'ListChannelNews', views.viewListChannelNews(state));
 
   const addNewItemsChannel = (url) => {
     state.listChannels.forEach((elem) => {
@@ -36,9 +29,10 @@ export default () => {
       }
       const oldChannel = elem.channel;
       const oldChannelItems = oldChannel.listItems;
+      state.processUploadingFid = 'uploadingFid';
       axios.get(`https://cors-anywhere.herokuapp.com/${elem.url}`)
         .then((response) => {
-          state.networkStatus = 'networkStable';
+          state.processUploadingFid = 'loadedFid';
           const newChannel = parseRss(response.data);
           const newChannelItems = newChannel.listItems;
           const unionChannelItems = _.unionBy(newChannelItems, oldChannelItems, 'link');
@@ -46,7 +40,7 @@ export default () => {
         })
         .catch((e) => {
           console.log(e);
-          state.networkStatus = 'Error';
+          state.processUploadingFid = 'notLoadedFid';
         })
         .finally(() => {
           setTimeout(() => addNewItemsChannel(url), 5000);
@@ -58,134 +52,13 @@ export default () => {
   const isValidUrl = (url) => validator.isURL(url)
    && state.listChannels.filter((elem) => elem.url === url).length === 0;
 
-  WatchJS.watch(state, 'registrationProcess', () => {
-    const input = document.getElementById('formGroupExampleInput');
-    const form = input.closest('form');
-    const button = document.querySelector('[data-toggle="submitJumbotron"]');
-    const alert = document.getElementById('alertUpload');
-    switch (state.registrationProcess) {
-      case 'upload':
-        button.setAttribute('disabled', '');
-        input.setAttribute('disabled', '');
-        button.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>Загрузка...';
-        break;
-
-      case 'notLoaded':
-        button.removeAttribute('disabled');
-        input.removeAttribute('disabled');
-        form.reset();
-        button.innerHTML = 'Добавить';
-        alert.innerHTML = `
-          <div class="alert alert-warning alert-danger fade show" role="alert">
-            <strong>Ошибка!</strong> Не получилось загрузить данные.
-            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-              <span aria-hidden="true">&times;</span>
-            </button>
-          </div>`;
-        break;
-
-      case 'added':
-        form.reset();
-        button.removeAttribute('disabled');
-        input.removeAttribute('disabled');
-        button.innerHTML = 'Добавить канал';
-        break;
-
-      case 'valid':
-        input.classList.remove('is-invalid');
-        break;
-
-      case 'invalid':
-        input.classList.add('is-invalid');
-        break;
-
-      default:
-        throw new Error(`No suitable type: ${state.registrationProcess}`);
-    }
-  });
-
-  WatchJS.watch(state, 'listChannels', () => {
-    const listChannel = document.querySelector('.list-group');
-    const beforeActiveChannel = listChannel.querySelector('.active');
-    listChannel.innerHTML = '';
-    state.listChannels.forEach((elem) => {
-      const listChannelElem = document.createElement('a');
-      listChannelElem.setAttribute('href', '#');
-      listChannelElem.setAttribute('url', elem.url);
-      listChannelElem.classList.add('list-group-item', 'list-group-item-action');
-      if (elem.targetStatus) {
-        if (beforeActiveChannel !== null) {
-          beforeActiveChannel.classList.remove('active');
-        }
-        listChannelElem.classList.add('active');
-      }
-
-      listChannelElem.innerHTML = `
-        <div class="d-flex w-100 justify-content-between">
-          <h5 class="mb-1">${elem.channel.title}</h5>
-        </div>
-        <p class="mb-1">${elem.channel.description}</p>
-      `;
-
-      listChannel.append(listChannelElem);
-    });
-  });
-
-  WatchJS.watch(state, 'ListChannelNews', () => {
-    const listNews = document.getElementById('listNews');
-    listNews.innerHTML = '';
-    state.ListChannelNews.forEach((elem) => {
-      const news = document.createElement('li');
-      news.classList.add('list-group-item');
-      const a = document.createElement('a');
-      a.setAttribute('href', elem.link);
-      a.setAttribute('target', '_blank');
-      a.textContent = elem.title;
-      news.append(a);
-      const buttonModal = document.createElement('button');
-      buttonModal.classList.add('btn', 'btn-primary');
-      buttonModal.setAttribute('type', 'button');
-      buttonModal.setAttribute('data-toggle', 'modal');
-      buttonModal.setAttribute('data-target', '#exampleModal');
-      buttonModal.setAttribute('style', 'float: right');
-      buttonModal.textContent = 'Подробнее';
-      buttonModal.addEventListener('click', () => {
-        const titleNews = elem.title;
-        const descriptionNews = elem.description;
-        const modalTitle = document.querySelector('.modal-title');
-        const modalBody = document.querySelector('.modal-body');
-        modalTitle.textContent = titleNews;
-        modalBody.textContent = descriptionNews;
-      });
-      news.append(buttonModal);
-      listNews.append(news);
-    });
-  });
-
-  WatchJS.watch(state, 'networkStatus', () => {
-    const alert = document.getElementById('alert');
-    switch (state.networkStatus) {
-      case 'Error':
-        alert.innerHTML = `<div class="alert alert-danger" role="alert">
-        <strong>Внимание!</strong> Возникла ошибка при запросе данных - проверьте соединение с интернетом.
-      </div>`;
-        break;
-
-      case 'networkStable':
-        alert.innerHTML = '';
-        break;
-
-      default:
-        throw new Error(`No suitable type: ${state.networkStatus}`);
-    }
-  });
-
   const input = document.getElementById('formGroupExampleInput');
-  input.addEventListener('keyup', (e) => {
+
+  input.addEventListener('input', (e) => {
     if (isValidUrl(e.currentTarget.value) || e.currentTarget.value === '') {
-      state.registrationProcess = 'valid';
+      state.processUploadingRss = 'valid';
     } else {
-      state.registrationProcess = 'invalid';
+      state.processUploadingRss = 'invalid';
     }
   });
 
@@ -204,13 +77,14 @@ export default () => {
     });
   });
 
-  const button = document.querySelector('.jumbotron');
-  button.addEventListener('submit', (e) => {
+  const form = document.querySelector('.jumbotron');
+
+  form.addEventListener('submit', (e) => {
     e.preventDefault();
     const target = e.currentTarget;
     const inputForm = target.querySelector('[data-toggle="inputJumbotron"]');
     const inputFormValue = inputForm.value;
-    state.registrationProcess = 'upload';
+    state.processUploadingRss = 'uploading';
     axios.get(`https://cors-anywhere.herokuapp.com/${inputFormValue}`)
       .then((response) => {
         const channel = parseRss(response.data);
@@ -218,15 +92,15 @@ export default () => {
         const url = inputFormValue;
 
         if (!isValidUrl(url)) {
-          state.registrationProcess = 'invalid';
+          state.processUploadingRss = 'invalid';
         } else {
           state.listChannels.push({ channel, targetStatus, url });
-          state.registrationProcess = 'added';
+          state.processUploadingRss = 'loaded';
         }
       })
       .catch((error) => {
         console.log(error);
-        state.registrationProcess = 'notLoaded';
+        state.processUploadingRss = 'notLoaded';
       })
       .finally(() => {
         const isAddedChannelFlag = state.listChannels
