@@ -3,20 +3,23 @@ import validator from 'validator';
 import axios from 'axios';
 import WatchJS from 'melanke-watchjs';
 import _ from 'lodash';
-import parseRss from './parsers/parseRss';
+import parseRss from './parseRss';
 import * as views from './watchers/views';
 
 export default () => {
   const state = {
-    processUploadingRss: 'valid',
-    processUploadingFid: 'uploadingFid',
+    validationForm: 'valid',
+    processUploadingRss: 'loaded',
+    processUpdatingRss: 'updating',
     listChannels: [],
     listChannelNews: [],
   };
 
-  WatchJS.watch(state, 'processUploadingFid', views.viewUploadingFid(state));
+  WatchJS.watch(state, 'validationForm', views.viewValidationForm(state));
 
   WatchJS.watch(state, 'processUploadingRss', views.viewUploadingRss(state));
+
+  WatchJS.watch(state, 'processUpdatingRss', views.viewUpdatingRss(state));
 
   WatchJS.watch(state, 'listChannels', views.viewListChannels(state));
 
@@ -29,10 +32,10 @@ export default () => {
       }
       const oldChannel = elem.channel;
       const oldChannelItems = oldChannel.listItems;
-      state.processUploadingFid = 'uploadingFid';
+      state.processUpdatingRss = 'updating';
       axios.get(`https://cors-anywhere.herokuapp.com/${elem.url}`)
         .then((response) => {
-          state.processUploadingFid = 'loadedFid';
+          state.processUpdatingRss = 'updated';
           const newChannel = parseRss(response.data);
           const newChannelItems = newChannel.listItems;
           const unionChannelItems = _.unionBy(newChannelItems, oldChannelItems, 'link');
@@ -40,7 +43,7 @@ export default () => {
         })
         .catch((e) => {
           console.log(e);
-          state.processUploadingFid = 'notLoadedFid';
+          state.processUpdatingRss = 'notUpdated';
         })
         .finally(() => {
           setTimeout(() => addNewItemsChannel(url), 5000);
@@ -56,9 +59,9 @@ export default () => {
 
   input.addEventListener('input', (e) => {
     if (isValidUrl(e.currentTarget.value) || e.currentTarget.value === '') {
-      state.processUploadingRss = 'valid';
+      state.validationForm = 'valid';
     } else {
-      state.processUploadingRss = 'invalid';
+      state.validationForm = 'invalid';
     }
   });
 
@@ -77,7 +80,8 @@ export default () => {
     });
   });
 
-  const form = document.querySelector('.jumbotron');
+  const jumbotron = document.querySelector('.jumbotron');
+  const form = jumbotron.querySelector('form');
 
   form.addEventListener('submit', (e) => {
     e.preventDefault();
@@ -92,7 +96,8 @@ export default () => {
         const url = inputFormValue;
 
         if (!isValidUrl(url)) {
-          state.processUploadingRss = 'invalid';
+          state.processUploadingRss = 'loaded';
+          state.validationForm = 'valid';
         } else {
           state.listChannels.push({ channel, targetStatus, url });
           state.processUploadingRss = 'loaded';

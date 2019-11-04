@@ -1,22 +1,40 @@
-export const viewUploadingFid = (state) => () => {
-  const alert = document.getElementById('alertFid');
-  switch (state.processUploadingFid) {
-    case 'uploadingFid':
+import globalTranslations from '../globalTranslations';
+
+export const viewValidationForm = (state) => () => {
+  const input = document.getElementById('formGroupExampleInput');
+  switch (state.validationForm) {
+    case 'valid':
+      input.classList.remove('is-invalid');
       break;
 
-    case 'loadedFid':
+    case 'invalid':
+      input.classList.add('is-invalid');
+      break;
+
+    default:
+      throw new Error(`No suitable type "validationForm": ${state.validationForm}`);
+  }
+};
+
+export const viewUpdatingRss = (state) => () => {
+  const alert = document.getElementById('alertUpdatingRss');
+  switch (state.processUpdatingRss) {
+    case 'updating':
+      break;
+
+    case 'updated':
       alert.innerHTML = '';
       break;
 
-    case 'notLoadedFid':
+    case 'notUpdated':
       alert.innerHTML = `
         <div class="alert alert-warning alert-danger fade show" role="alert">
-          <strong>Внимание!</strong> Возникла ошибка при запросе данных - проверьте соединение с интернетом.
+          ${globalTranslations.RU.updatingError}
         </div>`;
       break;
 
     default:
-      throw new Error(`No suitable type "processUploadingFid": ${state.processUploadingFid}`);
+      throw new Error(`No suitable type "processUpdatingRss": ${state.processUpdatingRss}`);
   }
 };
 
@@ -26,35 +44,27 @@ export const viewUploadingRss = (state) => () => {
   const button = document.querySelector('[data-toggle="submitJumbotron"]');
   const alert = document.getElementById('alertUploadingRss');
   switch (state.processUploadingRss) {
-    case 'valid':
-      input.classList.remove('is-invalid');
-      break;
-
-    case 'invalid':
-      input.classList.add('is-invalid');
-      break;
-
     case 'uploading':
       button.setAttribute('disabled', '');
       input.setAttribute('disabled', '');
-      button.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>Загрузка...';
+      button.innerHTML = `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>${globalTranslations.RU.loading}`;
       break;
 
     case 'loaded':
       form.reset();
       button.removeAttribute('disabled');
       input.removeAttribute('disabled');
-      button.innerHTML = 'Добавить';
+      button.innerHTML = globalTranslations.RU.textButton;
       break;
 
     case 'notLoaded':
       button.removeAttribute('disabled');
       input.removeAttribute('disabled');
       form.reset();
-      button.innerHTML = 'Добавить';
+      button.innerHTML = globalTranslations.RU.textButton;
       alert.innerHTML = `
         <div class="alert alert-warning alert-danger fade show" role="alert">
-          <strong>Ошибка!</strong> Не получилось загрузить данные.
+          ${globalTranslations.RU.uploadingError}
           <button type="button" class="close" data-dismiss="alert" aria-label="Close">
             <span aria-hidden="true">&times;</span>
           </button>
@@ -101,7 +111,7 @@ export const viewListChannelNews = (state) => () => {
     news.classList.add('list-group-item');
     news.innerHTML = `
       <a href="${elem.link}" target="_blank">${elem.title}</a>
-      <button class="btn btn-primary type="button" data-toggle="modal" data-target="#exampleModal" style="float: right">Подробнее</button>`;
+      <button class="btn btn-primary type="button" data-toggle="modal" data-target="#exampleModal" style="float: right">${globalTranslations.RU.textModalButton}</button>`;
     const buttonModal = news.querySelector('button');
     buttonModal.addEventListener('click', () => {
       const titleNews = elem.title;
