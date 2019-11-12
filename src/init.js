@@ -55,16 +55,6 @@ export default () => {
   const isValidUrl = (url) => validator.isURL(url)
    && state.listChannels.filter((elem) => elem.url === url).length === 0;
 
-  const input = document.getElementById('formGroupExampleInput');
-
-  input.addEventListener('input', (e) => {
-    if (isValidUrl(e.currentTarget.value) || e.currentTarget.value === '') {
-      state.validationForm = 'valid';
-    } else {
-      state.validationForm = 'invalid';
-    }
-  });
-
   const listChannels = document.getElementById('listChannels');
 
   listChannels.addEventListener('click', (e) => {
@@ -83,11 +73,20 @@ export default () => {
   const jumbotron = document.querySelector('.jumbotron');
   const form = jumbotron.querySelector('form');
 
+  form.addEventListener('input', () => {
+    const formData = new FormData(form);
+    const inputFormValue = formData.get('inputJumbotron');
+    if (isValidUrl(inputFormValue) || inputFormValue === '') {
+      state.validationForm = 'valid';
+    } else {
+      state.validationForm = 'invalid';
+    }
+  });
+
   form.addEventListener('submit', (e) => {
     e.preventDefault();
-    const target = e.currentTarget;
-    const inputForm = target.querySelector('[data-toggle="inputJumbotron"]');
-    const inputFormValue = inputForm.value;
+    const formData = new FormData(form);
+    const inputFormValue = formData.get('inputJumbotron');
     state.processUploadingRss = 'uploading';
     axios.get(`https://cors-anywhere.herokuapp.com/${inputFormValue}`)
       .then((response) => {
